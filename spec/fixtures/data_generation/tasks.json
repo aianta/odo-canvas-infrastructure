@@ -1,0 +1,17 @@
+[
+    {
+        "id": "18895195-19df-400c-99f1-b4635028ccb5",
+        "parameters": ["Discussion", "Course"],
+        "instances": [
+            {
+                "Discussion": "Welcome to the Generic Course",
+                "Course": "Generic Course"
+            }
+        ],
+        "_values": {
+            "Discussion": "Welcome ",
+            "Course": "Generic Course"
+        }
+    }
+
+]
