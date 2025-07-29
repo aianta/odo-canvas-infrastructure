@@ -113,20 +113,84 @@ def generate_test_environment
     course_data = test_data["courses"].select {|course| course["name"] == _course.course.name}
     course_data = course_data[0]
 
+    # Fetch student test data and create enrolled students
+    course_data["students"].each { |student|
+      puts "Creating student #{student["name"]} in #{_course.course.name}"
+
+      _course.create_classmate({
+        :student_email => student["email"],
+        :student_name => student["name"],
+        :student_password => student["password"]
+      })
+
+    }
+
+    # Fetch group test data and create student groups
+    course_data["groups"].each { |group|
+      puts "Creating group '#{group["name"]}' in #{_course.course.name}"
+       _course.create_group(group)
+    }
+
+    # Fetch discussion test data and create discussions for the course.
+    course_data["discussions"].each { |discussion|
+      puts "Creating discussion '#{discussion["title"]}' in  #{_course.course.name}"
+      _course.create_discussion(discussion)
+    }
+
+    # Fetch announcement test data and create announcements
+    course_data["announcements"].each {|announcement|
+
+      puts "Creating announcement '#{announcement["title"]}' in #{_course.course.name}"
+
+      _course.create_announcement(announcement)
+
+
+    }
 
     # Fetch assignment test data and create assignments
     course_data["assignments"].each { |assignment|
       puts "Creating assignment #{assignment["name"]} in #{_course.course.name}"
+
+      if assignment["submission_types"].include?("discussion_topic")
+        _course.create_discussion_assignment(assignment)
+        next
+      end
+
       assignment_opts = _course.default_assignment_opts
       assignment_opts[:title] = assignment["name"]
       assignment_opts[:description] = assignment["description"]
-      assignment_opts[:due_at] = assignment["due_date_time"]
+      assignment_opts[:due_at] = assignment["due_at"]
       assignment_opts[:points_possible] = assignment["points_possible"]
       assignment_opts[:created_at] = assignment["created_at"]
       assignment_opts[:updated_at] = assignment["updated_at"]
       assignment_opts[:submission_types] = assignment["submission_types"]
 
-      _course.create_assignment(assignment_opts)
+      a = _course.create_assignment(assignment_opts)
+
+      if assignment["submissions"] # If the assignment has submissions, create those too.
+        assignment["submissions"].each { |submission|
+          submission["user"] = _course.resolve_user_value(submission["user"], _course)
+          _submission = a.submit_homework(submission["user"], submission.except("user"))
+
+          if submission["peer_review"] # If there are peer review or instructor feedback comments create those too!
+            submission["peer_review"].each { |review|
+              review["author"] = _course.resolve_user_value(review["author"], _course)
+              _submission.add_comment(comment: review["comment"], author: review["author"])
+            }
+          end
+
+          _submission.save!
+        }
+      end
+
+      if assignment["peer_reviews"] # If the assignment has peer reviews enabled, set those up.
+        a.peer_review_count = assignment["peer_reviews"]["count"]
+        a.automatic_peer_reviews = assignment["peer_reviews"]["automatic_peer_reviews"]
+        a.update!(peer_reviews: true)
+        a.save!
+        result = a.assign_peer_reviews
+      end
+
     }
 
 
@@ -135,7 +199,7 @@ def generate_test_environment
     quiz_data = course_data["quizzes"]
     quiz_data.each { |quiz|
       
-      puts "Creating quiz #{quiz["title"]}"
+      puts "Creating quiz #{quiz["title"]} in #{_course.course.name}"
 
       if quiz["rubric"]
         @quiz = assignment_quiz([], {
@@ -151,7 +215,7 @@ def generate_test_environment
 
         
         # Create the rubric
-        puts "Creating Rubric #{quiz["rubric"]["title"]} for #{_course.course.name}"
+        puts "Creating rubric #{quiz["rubric"]["title"]} for #{_course.course.name}"
 
         rubric_opts = quiz["rubric"].merge({
           :user=>_course.teacher,
@@ -192,13 +256,8 @@ def generate_test_environment
       else
 
         quiz_opts = quiz.except("rubric", "questions")
-        puts "Quiz Opts"
-        puts quiz_opts.class
-        puts quiz_opts
-        puts "Quiz Questions:"
-        puts quiz["questions"]
 
-        q = _course.course.quizzes.create(quiz_opts) # Create the actual quiz
+        q = _course.course.quizzes.create!(quiz_opts) # Create the actual quiz
         
         # Populate quiz questions
         questions = []
@@ -212,7 +271,8 @@ def generate_test_environment
           questions << question
         }
         
-        q.reload
+        q.generate_quiz_data
+
         q.save!
         q.publish!
 
@@ -243,6 +303,8 @@ end
 
 
 
+
+
 =begin
 Run with:
 docker-compose run --remove-orphans web bundle exec rails runner spec/fixtures/data_generation/custom_data.rb
@@ -250,3 +312,4 @@ docker-compose run --remove-orphans web bundle exec rails runner spec/fixtures/d
 
 #explore
 generate_test_environment
+#puts Account.default.settings.pretty_inspect

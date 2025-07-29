@@ -8,6 +8,7 @@ require_relative "../../factories/wiki_page_factory"
 require_relative "../../factories/assignment_factory"
 require_relative "../../factories/quiz_factory"
 require_relative "../../factories/rubric_factory"
+require_relative "../../factories/group_factory"
 require 'json'  
 
 class TestData 
@@ -153,6 +154,7 @@ The student account will be assumed to be the logged in user for this course.
     @classmates = [] # All students that aren't the logged in user
     @teachers = []
     @discussions = []
+    @announcements = []
     @assignments = []
     @quizzes = []
     @groups = []
@@ -205,7 +207,8 @@ The student account will be assumed to be the logged in user for this course.
     @students << @user
     @logged_in_user = @user
 
-    puts "in init, @course is nil? #{@course.nil?}"
+    @course.root_account.enable_feature! :discussions_reporting
+
 
   end
 
@@ -230,25 +233,71 @@ The student account will be assumed to be the logged in user for this course.
 
   end
 
+  def create_group(data)
+    data[:context] = @course
+
+    group = Factories.group(data.except("users", "discussions"))
+ 
+    data["users"].each {|user| 
+      u = resolve_user_value(user, self)
+      group.add_user(u, "accepted", false)
+    }
+    group.name = data["name"]
+    group.save!
+
+    @groups << group
+
+    if data["discussions"] # If the group has any discussions create those too. 
+      data["discussions"].each {|discussion|
+      
+      create_group_discussion(group, discussion)
+
+    }
+    end
+
+  end
+
+  def create_group_discussion(group, data)
+
+    data["user"] = resolve_user_value(data["user"], self)
+    discussion = group.discussion_topics.create!(data.except("replies"))
+
+    discussion.reload
+    if data["replies"] # If there are any replies create those too
+      data["replies"].each {|reply|
+        create_discussion_reply(discussion, reply)
+    }
+    end
+
+    discussion
+
+  end
+
 
   def create_assignment(data={})
 
     assignment = @course.assignments.create!(data.merge({:assignment_group => @group }))
-
+    @assignments << assignment
     assignment
   end
 
-  def create_announcement(data={
-    :announcement_title => "Big announcement!",
-    :announcement_message => "Good news everyone!"
-  })
+  def create_announcement(data)
 
     @context = @course
-    @announcement = announcement_model({
-      :title=>data[:announcement_title],
-      :message=>data[:announcement_message]
-    })
+
+    data["user"] = resolve_user_value(data["user"], self)
+    @announcement = @course.announcements.create!(data.except("replies"))
+
     @announcement.reload
+    @announcements << @announcement
+
+    if data["replies"] # If there are replies to this announcement create them now.
+      data["replies"].each {|reply|
+      create_discussion_reply(@announcement, reply)
+    }
+      
+    end
+
     @announcement
 
   end
@@ -270,22 +319,29 @@ The student account will be assumed to be the logged in user for this course.
   end
 
   def create_discussion(data={
-    :discussion_title => "Welcome to the course!",
-    :discussion_message => "Hi everyone! I'd like to welcome you all to Generic Course!", 
+    :title => "Welcome to the course!",
+    :message => "Hi everyone! I'd like to welcome you all to Generic Course!", 
     :user => @teacher,
     :discussion_type => "threaded"
   })
 
-  puts "@course is nil? #{@course.nil?}"
+  # process user value
+  data["user"] = resolve_user_value(data["user"], self)
 
-  @discussion = @course.discussion_topics.create!(
-    title: data[:discussion_title],
-    message: data[:discussion_message],
-    user: data[:user],
-    discussion_type: data[:discussion_type] 
-  )
+
+  @discussion = @course.discussion_topics.create!(data.except("replies"))
 
   @discussion.reload
+
+  # If this discussion has replies, create them too. 
+  if data["replies"]
+
+    data["replies"].each { |reply|
+      create_discussion_reply(@discussion, reply)
+    }
+
+  end
+
   @discussions << @discussion
   @discussion
 
@@ -317,11 +373,84 @@ The student account will be assumed to be the logged in user for this course.
     @user
   end
 
-  def create_discussion_reply(discussion, replier, reply_text)
+  def create_discussion_assignment(data)
+    data = data.merge({:assignment_group => @group})
+    assignment = @course.assignments.create!(data.except("peer_reviews", "replies"))
 
-    reply = discussion.reply_from(user: replier, text: reply_text)
-    reply.reload
+    topic = assignment.discussion_topic
+
+    puts "Created discussion topic? #{topic}"
+
+    if data["replies"]
+      data["replies"].each {|reply|
+      create_discussion_reply(topic, reply )
+    }
+    end
+
+    if data["peer_reviews"]
+      assignment.peer_review_count = data["peer_reviews"]["count"]
+      assignment.automatic_peer_reviews = data["peer_reviews"]["automatic_peer_reviews"]
+      assignment.anonymous_peer_reviews = data["peer_reviews"]["anonymous_peer_reviews"]
+      assignment.update!(peer_reviews: true)
+      assignment.save!
+
+      result = a.assign_peer_reviews
+    end
+  end
+
+  def create_discussion_reply(discussion, reply)
+
+    replier = reply["user"]
+    reply_text = reply["text"]
+   
+
+
+    if replier.is_a? String # If the replier value is a string, resolve it to a user object.
+      replier = resolve_user_value(replier, self)
+    end
+
+    _reply = discussion.reply_from(user: replier, text: reply_text)
+    _reply.reload
     discussion.reload
+
+    # Handle any nestest replies recursively.
+    if reply["replies"]
+      reply["replies"].each {|r| create_discussion_reply(_reply, r)}
+    end
+
+  end
+
+  # A method that resolves user values loaded from the test data.
+  # In the test data the value for a 'user' key may be one of the following:
+  # 'instructor'/'teacher', 'student', 'logged_in_user'/'main_user' or the email of a particular user. 
+  def resolve_user_value(user_value, course)
+
+    # Pick a random instructor
+    if user_value == "instructor" || user_value == "teacher"
+      return course.teachers.sample
+    end
+
+    # Pick a random student
+    if user_value == "student" 
+      return course.students.sample
+    end
+
+    # Pick the main user
+    if user_value == "logged_in_user" || user_value == "main_user"
+      return course.logged_in_user
+    end
+
+    # pick the user corresponding with the provided email address.
+    if user_value.include? "@"
+      
+      pool = []
+      pool.concat course.students
+      pool.concat course.teachers
+
+      return pool.select {|user| user.email == user_value}.first
+
+
+    end
 
   end
 

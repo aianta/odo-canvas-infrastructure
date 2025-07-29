@@ -10,6 +10,55 @@ courses:
     name: Sammy Studentson
     email: sammy@ualberta.ca
     password: op3TPfE3J5MK
+  students:
+    - name: Terrance Studentson
+      email: terrance@ualberta.ca
+      password: Xs224D3drZaR
+    - name: Phillip Studentson
+      email: phillip@ualberta.ca
+      password: 6bE1G83JrT1i
+    - name: Sarah Studentson
+      email: sarah@ualberta.ca
+      password: 30OubNfH3Z3T
+  announcements:
+    - title: There will be no class next week!
+      message: Don't bother coming in next week as there will be no class.
+      user: instructor
+      allow_rating: true
+      replies: 
+        - user: phillip@ualberta.ca
+          text: Alright! Finally some time to catch up on studying!
+        - user: sarah@ualberta.ca
+          text: Awww, I was looking forward to sleeping in class next week. 
+  discussions:
+    - title: What aspect of psychology do you find most interesting?
+      message: |
+        Hi Everyone, I hope you've all had a great first week of classes. This semester I am looking to engage with students on a variety of weekly opinion questions. Starting with what aspects of psychology you personally find interesting. Leave your answers in a comment below! 
+      user: instructor
+      discussion_type: threaded
+      replies:
+        - user: terrance@ualberta.ca
+          text: I think the study of abnormal behavior will be the most interesting!
+          replies:
+            - user: phillip@ualberta.ca
+              text: No way is that more interesting than the neuroscience aspects.
+        - user: sarah@ualberta.ca
+          text: I am looking forward to better understanding the mechanisms behind procrastination. 
+  groups:
+    - name: Group A
+      is_public: true
+      description: A team
+      max_membership: 3
+      users: 
+        - sammy@ualberta.ca
+        - phillip@ualberta.ca
+        - terrance@ualberta.ca
+      discussions:
+        - title: I'll be away next week.
+          message: Just letting everyone know I'll be on vacation next week and unavailable. 
+          user: main_user
+          discussion_type: threaded
+
   pages:
     - name: "Syllabus"
       body: |
@@ -20,24 +69,114 @@ courses:
         1. Childhood Development Essay
         **Due Date:** January 1st, 2026 @ 5pm
 
-  assignments:
+  assignments:   
+    - name: Researchers in the field of Psychology
+      description: |
+        Hi Everyone, for this assignment, you'll have to reply with the name of a researcher in the field of psychology.
+      due_at: 2026-03-01 18:00:00
+      points_possible: 2
+      created_at: 2025-07-29 10:00:00
+      updated_at: 2025-07-29 10:00:00
+      submission_types: ["discussion_topic"]
+      grading_type: "points"
+      replies:
+        - user: sarah@ualberta.ca
+          text: My favorite psychologist is Erik Erikson!
+      peer_reviews: 
+        enabled: true
+        count: 1
+        due_at: 2026-04-01 18:00:00
+        intra_group_peer_reviews: true
+        anonymous_peer_reviews: false
+        automatic_peer_reviews: true
+      
+    - name: Abnormal Behavior Essay
+      group_category: default
+      description: Write a 1000 word essay about abnormal behavior.
+      due_at: 2026-02-01 18:00:00
+      points_possible: 100
+      created_at: 2025-07-29 10:00:00
+      updated_at: 2025-07-29 10:00:00
+      submission_types: ["online_text_entry"]
+      submissions:
+        - user: main_user
+          submission_type: online_text_entry
+          body: |
+           <p> In psychology, abnormal behavior refers to patterns of emotion, thought, or action that deviate significantly from societal norms and may interfere with daily functioning. This includes behaviors that are distressing to the individual, socially disruptive, or harmful—often manifesting in conditions like anxiety disorders, depression, schizophrenia, or personality disorders. Psychologists assess abnormal behavior by considering factors such as the intensity, duration, and context of symptoms, always accounting for cultural and situational differences. It's not just about what's “unusual”—it's about understanding the deeper psychological, biological, and environmental causes to support effective diagnosis and treatment.</p>
+          peer_review:
+            - author: instructor
+              comment: Well done!
     - name: "Childhood Development Essay"
       group_category: default
       description: "Write a 1000 word essay about an aspect of childhood psychological development."
-      due_date_time: 2026-01-02 18:00:00
+      due_at: 2026-01-02 18:00:00
       points_possible: 100
       created_at: 2025-07-28 10:00:00
       updated_at: 2025-07-28 10:00:00
       submission_types: ["online_text_entry"]
+      submissions:
+        - user: main_user
+          submission_type: online_text_entry
+          body: |
+            <p> Childhood psychological development is a dynamic process where the foundations of personality, emotional regulation, social skills, and cognitive abilities begin to form. From infancy through adolescence, children navigate stages of attachment, trust-building, autonomy, and identity exploration—each influenced by interactions with caregivers, peers, and their environment. Milestones such as developing language, understanding emotions, and grasping moral reasoning are shaped by both biology and experience. This formative period lays the groundwork for future mental health, relationships, and learning, making early support and nurturing critical for well-rounded development. </p>
+          peer_review:
+            - author: terrance@ualberta.ca
+              comment: Not bad.
+        - user: terrance@ualberta.ca
+          submission_type: online_text_entry
+          body: |
+            <p> Another vital aspect of childhood psychological development is the formation of executive functions—cognitive skills that include working memory, impulse control, and flexible thinking. These functions begin to take shape in early childhood and are heavily influenced by both brain maturation and life experiences. As children learn to manage their emotions, plan tasks, follow instructions, and shift attention between activities, they gradually develop the self-regulation needed for academic success and social interaction. Structured play, supportive caregiving, and responsive environments help refine these mental tools, setting the stage for independent decision-making and problem-solving throughout life.</p>
+      peer_reviews: 
+        enabled: true
+        count: 1
+        due_at: 2026-01-01 18:00:00
+        intra_group_peer_reviews: true
+        anonymous_peer_reviews: true
+        automatic_peer_reviews: true
+
+
     - name: "Brain Anaomolies"
       group_category: default
       description: "Write a paragraph about what you learned from today's class discussion topic: 'Brain Anomolies'."
-      due_date_time: 2026-01-15 18:00:00
+      due_at: 2026-01-15 18:00:00
       points_possible: 10
       created_at: 2025-07-28 10:00:00
       updated_at: 2025-07-28 10:00:00 
       submission_types: ["online_text_entry"]
   quizzes:
+    - title: A quick review of the biology
+      description: A quiz to test your background knowledge of biology related to psychology.
+      due_at: 2025-09-12 18:00:00
+      published_at: 2025-07-29 10:00:00
+      workflow_state: available
+      questions:
+      - name: Question 1
+        question_type: "true_false_question"
+        points_possible: 1
+        question_text: "<p>Biology starts with the letter 'b'.</p>"
+        answers:
+          - weight: 0
+            text: "False"
+          - weight: 100
+            text: "True"
+      - name: Question 2
+        question_type: "true_false_question"
+        points_possible: 1
+        question_text: <p>The hunan body contains cells.</p>
+        answers:
+          - weight: 0
+            text: "False"
+          - weight: 100
+            text: "True"
+      - name: Question 3
+        question_type: "short_answer_question"
+        points_possible: 1
+        question_text: "<p>The _____________ is the powerhouse of the cell!</p>"
+        answers:
+          - weight: 100
+            text: "mitochondria"
+            id: 90100
+        
     - title: Warming up to psychology
       description: A quiz to test the knowledge of some psychology stuff
       due_at: 2025-09-01 18:00:00
