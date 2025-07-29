@@ -374,6 +374,16 @@ The student account will be assumed to be the logged in user for this course.
   end
 
   def create_discussion_assignment(data)
+    
+=begin
+This is where we left off on july 29th, need to implement loading in discussion assignments. 
+
+discussion_assignment = @course.assignments.create!(title: "Del this disc", workflow_state: "active")
+d = @course.discussion_topics.create!(assignment: discussion_assignment, title: "Del this disc")
+=end
+
+
+
     data = data.merge({:assignment_group => @group})
     assignment = @course.assignments.create!(data.except("peer_reviews", "replies"))
 
