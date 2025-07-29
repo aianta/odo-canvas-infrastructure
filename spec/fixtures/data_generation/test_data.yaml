@@ -1,0 +1,82 @@
+---
+courses:
+- name: Psychology 101
+  code: "PSY101"
+  instructor:
+    name: Tammy Teacherson
+    email: tammy@ualberta.ca
+    password: U4A3O659xgNs
+  main_user:
+    name: Sammy Studentson
+    email: sammy@ualberta.ca
+    password: op3TPfE3J5MK
+  pages:
+    - name: "Syllabus"
+      body: |
+        # Psychology 101 Syllabus
+
+        ## Assignments
+
+        1. Childhood Development Essay
+        **Due Date:** January 1st, 2026 @ 5pm
+
+  assignments:
+    - name: "Childhood Development Essay"
+      group_category: default
+      description: "Write a 1000 word essay about an aspect of childhood psychological development."
+      due_date_time: 2026-01-02 18:00:00
+      points_possible: 100
+      created_at: 2025-07-28 10:00:00
+      updated_at: 2025-07-28 10:00:00
+      submission_types: ["online_text_entry"]
+    - name: "Brain Anaomolies"
+      group_category: default
+      description: "Write a paragraph about what you learned from today's class discussion topic: 'Brain Anomolies'."
+      due_date_time: 2026-01-15 18:00:00
+      points_possible: 10
+      created_at: 2025-07-28 10:00:00
+      updated_at: 2025-07-28 10:00:00 
+      submission_types: ["online_text_entry"]
+  quizzes:
+    - title: Warming up to psychology
+      description: A quiz to test the knowledge of some psychology stuff
+      due_at: 2025-09-01 18:00:00
+      published_at: 2025-07-28 10:00:00
+      workflow_state: available
+      rubric: 
+        title: Warming up to psychology Rubric
+        description: A simple rubric used to assess a psychology quiz.
+        public: true
+        points_possible: 10
+        free_form_criterion_comments: false
+      questions:
+        - name: Question 1
+          question_type: short_answer_question
+          question_text: "<p>What is the difference between classical and operant conditioning?</p>"
+          points_possible: 32
+        - name: Question 2
+          question_type: "true_false_question"
+          points_possible: 10
+          question_text: "<p>Is psychology a science?</p>"
+          answers:
+            - weight: 0
+              text: "False"
+            - weight: 100
+              text: "True"
+        - name: Question 3
+          question_type: multiple_choice_question
+          points_possible: 10
+          question_text: What is the primary focus of cognitive psychology?
+          answers:
+            - weight: 0
+              text: The study of unconscious motives and desires
+              id: 100
+            - weight: 0
+              text: The study of observable behaviors and their environmental causes
+              id: 200
+            - weight: 100
+              text: The study of mental processes such as perception, memory, and problem-solving
+              id: 300
+            - weight: 0
+              text: The study of the influence of social interactions on behavior
+              id: 400

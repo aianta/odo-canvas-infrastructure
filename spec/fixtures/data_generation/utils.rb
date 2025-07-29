@@ -4,7 +4,11 @@ TODO: Write some basic documentation for what you're doing here.
 
 require_relative "../../factories/course_factory"
 require_relative "../../factories/announcement_factory"
-require 'json'
+require_relative "../../factories/wiki_page_factory"
+require_relative "../../factories/assignment_factory"
+require_relative "../../factories/quiz_factory"
+require_relative "../../factories/rubric_factory"
+require 'json'  
 
 class TestData 
 
@@ -49,16 +53,48 @@ class TestData
   def get_discussion(course_name)
     course = self.get_course(course_name)
     discussion = course["discussions"].shift
-    discussion
+
+    result = {
+      :discussion_title => discussion["title"],
+      :discussion_message => discussion["message"]
+    }
+
+    result
   end
 
+  # Returns test data for an announcement corresponding to the given course
   def get_announcement(course_name)
     course = self.get_course(course_name)
     announcement = course["announcements"].shift
-    announcement
+
+    result = {
+      :announcement_title => announcement["title"],
+      :announcement_message => announcement["message"]
+    }
+
+    result
   end
 
-  def get_group(course_name)
+
+  def get_quiz(course_name)
+    course = self.get_course(course_name)
+
+    quiz = course["quizzes"].shift
+
+    quiz
+
+
+  end
+
+  # Don't do this, just use the data returned by quiz instead.
+  def get_quiz_question(course_name, quiz_name)
+
+    course = self.get_course(course_name)
+    quiz = course["quizzes"].select {|item| item.name == quiz_name}
+
+    questions = quiz["questions"]
+
+  end
 
   def get_student
 
@@ -71,6 +107,7 @@ class TestData
     }
 
     result
+  end
 
 end
 
@@ -90,6 +127,8 @@ class TestCourse
   attr_reader :quizzes
   attr_reader :groups
   attr_reader :pages
+  attr_reader :teacher
+  attr_reader :group #TODO: temp
 
 =begin
 Initalize the test course, with an instructor and a student.
@@ -118,6 +157,7 @@ The student account will be assumed to be the logged in user for this course.
     @quizzes = []
     @groups = []
     @pages = []
+    
 
     # Create the course and the teacher user
     course_with_teacher({
@@ -132,6 +172,8 @@ The student account will be assumed to be the logged in user for this course.
     @course = @course
     @teacher = @user
     @enrollments << @enrollment
+
+    @group = @course.assignment_groups.create!(name: "group 1")
 
     # Setup login details for the teacher account
     @teacher.pseudonyms.create(
@@ -167,6 +209,35 @@ The student account will be assumed to be the logged in user for this course.
 
   end
 
+  def default_assignment_opts
+
+    opts = {
+      :title => "A simple Assignment",
+      :description => "A simple thing to do which will test your understanding.",
+      :due_at => Time.zone.now,
+      :points_possible => 10,
+      :created_at => Time.now.utc,
+      :updated_at => Time.now.utc,
+      :course => @course,
+      :context_id => @course.id,
+      :context_type => "Course",
+      :submission_types => ["online_text_entry"],
+      :workflow_state => "published",
+      :grading_type => "points"
+    }
+
+  opts
+
+  end
+
+
+  def create_assignment(data={})
+
+    assignment = @course.assignments.create!(data.merge({:assignment_group => @group }))
+
+    assignment
+  end
+
   def create_announcement(data={
     :announcement_title => "Big announcement!",
     :announcement_message => "Good news everyone!"
@@ -182,7 +253,21 @@ The student account will be assumed to be the logged in user for this course.
 
   end
 
+  def create_page(data={
+    :page_title => "The Example Page",
+    :page_body => "I have some text in me!",
+    :user => @teacher 
+  })
 
+    page = wiki_page_model({
+      title: data[:page_title],
+      body: data[:page_body],
+      user: data[:user],
+      course: @course
+    })
+
+    page
+  end
 
   def create_discussion(data={
     :discussion_title => "Welcome to the course!",

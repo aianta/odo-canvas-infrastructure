@@ -1,6 +1,10 @@
+require_relative "../../factories/rubric_factory"
+require_relative "../../factories/rubric_association_factory"
+
 require_relative "./common"
 require_relative "./utils"
 require 'json'
+require 'yaml'
 
 def generate_custom_course
   puts "Generating custom course"
@@ -77,211 +81,166 @@ def explore
   puts @course.methods
 end
 
+
 def generate_test_environment
 
-  @tasks = []
-
-  task = CanvasTask.new("18895195-19df-400c-99f1-b4635028ccb5")
-  @tasks << task
-
-  task.create_resources {
-
-    manifest = []
-
-
-
-  }
-
-
-  # Create 'global' collections to hold re-usable resources.
-  @students = []
-  @instructors = []
-  @courses = []
-  @assignments = []
-  @groups = []
-  @discussions = []
-  @enrollments = []
-
-  Account.site_admin.enable_feature! :react_discussions_post
-
-
-
-  # Setup some dummy data for course creation. 
-  course_data = {
-    :account => @root_account,
-    :course_name => "Generic Course 2",
-    :course_code => "GC2",
-    :is_public => true,
-    :active_course => 1,
-    :active_enrollment => 1,
-    :name => "Teacherson II"
-  }
-
-  # Create a course and instructor using the dummy data.
-  course_with_teacher(course_data)
-  @teacher = @user
-
-  @courses << @course
-  @enrollments << @enrollment
-
-  # Register a pseudonym for the created teacher
-  @teacher.pseudonyms.create!(
-    unique_id: "teach#{@teacher.id}@ualberta.com",
-    password: "password",
-    password_confirmation: "password"
-  )
-  @teacher.email = "teach#{@teacher.id}@ualberta.com"
-  @teacher.accept_terms
-  @teacher.register!
-
-  @instructors << @teacher
-
-  # Create a student in this course
-  course_with_student(
-    account: @root_account,
-    active_all: 1,
-    course: @course,
-    name: "Stu"
-  )
-  @enrollments << @enrollment
-
-  email = "student#{SecureRandom.alphanumeric(5)}@ualberta.ca"
-  @user.pseudonyms.create!(
-    unique_id: email,
-    password: "password",
-    password_confirmation: "password"
-  )
-  @user.email = email
-  @user.accept_terms
-  @students << @user
-
-  discussion_data = {
-    :discussion_title => "Welcome new students!",
-    :discussion_body  => "I'd like to welcome everyone to this generic course, we will be learning lots of general things!"
-  }
-
-  produce_test_data(@course, @teacher, @user, discussion_data)
-
-  # Create an annoucement
-  @context = @course
-  announcement_data = {
-    :title => "Big announcement!",
-    :message => "The big announcement is that this is valid test data for 2 tasks!"
-  }
-  @announcement  = announcement_model(announcement_data)
-
-  # Create a second student in the course
-  course_with_student(
-    account: @root_account,
-    active_all: 1,
-    course: @course,
-    name: "Bill"
-  )
-  @enrollments << @enrollment
-
-  email = "student#{SecureRandom.alphanumeric(5)}@ualberta.ca"
-  @user.pseudonyms.create!(
-    unique_id: email, 
-    password: "password",
-    password_confirmation: "password"
-  )
-  @user.email = email
-  @user.accept_terms
-  @students << @user
-
-  @classmate = @user
-
-  # Add a reply from a 2nd user
-  reply = @announcement.reply_from(user: @classmate, text: "I'm excited!" )
-  reply.reload
+  puts "Loading test data from container path: /usr/src/app/spec/fixtures/data_generation/test_data.yaml"
   
-  @announcement.reload
+  test_data = YAML.load_file "/usr/src/app/spec/fixtures/data_generation/test_data.yaml"
 
-  # Register a 3rd student to the course
-  course_with_student(
-    account: @root_account,
-    active_all: 1,
-    course: @course,
-    name: "Ted"
-  )
+  output = [] # Holds task instance output data
 
-  @enrollments << @enrollment
+  courses = [] # Holds the generated course objects
 
-  email = "student#{SecureRandom.alphanumeric(5)}@ualberta.ca"
-  @user.pseudonyms.create!(
-    unique_id: email,
-    password: "password",
-    password_confirmation: "password"
-  )
-  @user.email = email
-  @user.accept_terms
-  @students << @user
 
-  # Create a discussion with an inappropriate reply
-  inappropriate_discussion_data = {
-    :discussion_title => "I h8 school!",
-    :discussion_body  => "Does anyone else h8 school?! It's so much work!",
-    :student_reporting_enabled => true
+  test_data["courses"].each {|course| 
+    test_course = TestCourse.new({
+      :course_name => course["name"],
+      :course_code => course["code"],
+      :teacher_name => course["instructor"]["name"],
+      :teacher_email => course["instructor"]["email"],
+      :teacher_password => course["instructor"]["password"],
+      :student_name => course["main_user"]["name"],
+      :student_email => course["main_user"]["email"],
+      :student_password => course["main_user"]["password"]
+    })
+    courses << test_course
   }
 
-  inappropriate_discussion = @course.discussion_topics.create!(title: inappropriate_discussion_data[:discussion_title], message: inappropriate_discussion_data[:discussion_body], user: @user, discussion_type: "threaded")
-  inappropriate_reply = inappropriate_discussion.reply_from(user: @classmate, text: "I hate everyone so much!")
-  inappropriate_reply.reload
 
-  inappropriate_discussion.reload
+  # Create resources for each course
+  courses.each { |_course|
+    course_data = test_data["courses"].select {|course| course["name"] == _course.course.name}
+    course_data = course_data[0]
 
+
+    # Fetch assignment test data and create assignments
+    course_data["assignments"].each { |assignment|
+      puts "Creating assignment #{assignment["name"]} in #{_course.course.name}"
+      assignment_opts = _course.default_assignment_opts
+      assignment_opts[:title] = assignment["name"]
+      assignment_opts[:description] = assignment["description"]
+      assignment_opts[:due_at] = assignment["due_date_time"]
+      assignment_opts[:points_possible] = assignment["points_possible"]
+      assignment_opts[:created_at] = assignment["created_at"]
+      assignment_opts[:updated_at] = assignment["updated_at"]
+      assignment_opts[:submission_types] = assignment["submission_types"]
+
+      _course.create_assignment(assignment_opts)
+    }
+
+
+
+    # Fetch quiz test data and create quizzes
+    quiz_data = course_data["quizzes"]
+    quiz_data.each { |quiz|
+      
+      puts "Creating quiz #{quiz["title"]}"
+
+      if quiz["rubric"]
+        @quiz = assignment_quiz([], {
+          :course=> _course.course,
+          :title => quiz["title"],
+          :description => quiz["description"],
+          :due_at => quiz["due_at"],
+          :submission_types => ['online_quiz'],
+          :workflow_state => quiz["workflow_state"]
+        })
+
+        
+
+        
+        # Create the rubric
+        puts "Creating Rubric #{quiz["rubric"]["title"]} for #{_course.course.name}"
+
+        rubric_opts = quiz["rubric"].merge({
+          :user=>_course.teacher,
+          :context=>_course.course
+        })
+        
+        rubric = rubric_model(rubric_opts)
+        rubric.save!
+        rubric.reload
+
+        @assignment.build_rubric_association(
+          rubric: rubric,
+          purpose: "grading",
+          use_for_grading: true,
+          context: _course.course
+        )
+        @assignment.rubric_association.save!
+        @assignment.reload
+        @assignment.save!
+
+                
+        # Populate quiz questions
+        questions = []
+        quiz["questions"].each { |question|
+          question[:regrade_option] = false
+        }
+
+        quiz["questions"].each { |question_data|
+          question = @quiz.quiz_questions.create!(question_data: question_data)
+          questions << question
+        }
+        @quiz.generate_quiz_data
+        @quiz.due_at = quiz["due_at"]
+
+        @quiz.save!
+        @quiz.publish!
+
+      else
+
+        quiz_opts = quiz.except("rubric", "questions")
+        puts "Quiz Opts"
+        puts quiz_opts.class
+        puts quiz_opts
+        puts "Quiz Questions:"
+        puts quiz["questions"]
+
+        q = _course.course.quizzes.create(quiz_opts) # Create the actual quiz
+        
+        # Populate quiz questions
+        questions = []
+        
+        quiz["questions"].each { |question|
+          question[:regrade_option] = false
+        }
+
+        quiz["questions"].each { |question_data|
+          question = q.quiz_questions.create!(question_data: question_data)
+          questions << question
+        }
+        
+        q.reload
+        q.save!
+        q.publish!
+
+      end
+
+      
+
+    
+
+
+      
+
+    
+
+
+    
+
+      }
+
+
+
+
+
+
+  }
 
 end
 
-def generate_test_environment_2
-
-  # data_file = File.open "/usr/src/app/spec/fixtures/data_generation/data.json"
-
-  # data = JSON.load data_file
-  # puts "Loaded the following json data!"
-  # puts data
-
-  tasks = {} # a hash to hold all the tasks we're creating
-
-  tasks["18895195-19df-400c-99f1-b4635028ccb5"] = []
-  tasks["1f88f7b8-e990-4bf2-b8e3-a5f4e7133609"] = []
-  tasks["1f97e06f-ab71-48c8-ae91-c6cef3b46912"] = []
-
-  test_course = TestCourse.new
-
-  discussion = test_course.create_discussion
-
-  tasks["18895195-19df-400c-99f1-b4635028ccb5"] << {
-    "Discussion": discussion.title,
-    "Course": test_course.course.name
-  }
-
-  classmate = test_course.create_classmate
-
-  test_course.create_discussion_reply(discussion, classmate, "I think inappropriate replies are awesome and I encourage anyone to write the most inappropriate thing possible!")
-
-  announcement = test_course.create_announcement
-
-  reply = test_course.create_discussion_reply(announcement, classmate, "That's really exciting, I'm sure glad I read this!")
-
-  tasks["1f88f7b8-e990-4bf2-b8e3-a5f4e7133609"] << {
-    "Announcement" => announcement.title,
-    "Course" => test_course.course.name,
-    "User" => classmate.name,
-    "Date" => reply.posted_at.to_datetime.strftime("%d-%m-%Y"),
-    "Time" => reply.posted_at.to_datetime.strftime("%H:%M")
-  }
-
-  group_member_1 = test_course.create_classmate
-
-  group_member_2 = test_course.create_classmate
-
-
-
-  puts "Tasks"
-  puts tasks
-
-end
 
 
 =begin
@@ -289,5 +248,5 @@ Run with:
 docker-compose run --remove-orphans web bundle exec rails runner spec/fixtures/data_generation/custom_data.rb
 =end
 
-# explore
-generate_test_environment_2
+#explore
+generate_test_environment

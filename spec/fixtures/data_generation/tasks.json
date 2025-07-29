@@ -1,11 +1,27 @@
 [
     {
-        "id": "18895195-19df-400c-99f1-b4635028ccb5",
-        "parameters": ["Discussion", "Course"],
+        "id": "0b925826-6333-43cf-9eb0-4b5cb49a7e7d",
+        "parameters": ["Assignment", "Course"],
         "instances": [
             {
-                "Discussion": "Welcome to the Generic Course",
-                "Course": "Generic Course"
+                "Assignment": "Childhood Development Essay",
+                "Course": "Psychology 101"
+            },
+            {
+                "Assignment": "Mitochondria",
+                "Course": "Biology 101"
+            },
+            {
+                "Assignment": "Quarter End Financials",
+                "Course": "Accounting 101"
+            },
+            {
+                "Assignment": "Force & Acceleration",
+                "Course": "Physics 101"
+            },
+            {
+                "Assignment": "Diamonds and Pressure",
+                "Course": "Geology 101"
             }
         ],
         "_values": {
