@@ -125,10 +125,23 @@ def generate_test_environment
 
     }
 
+    # Fetch group category test data and create these in anticipation of creating groups
+    if course_data["group_categories"]
+      course_data["group_categories"].each {|group_category|
+        _course.create_group_category(group_category)
+      }
+    end
+
+
     # Fetch group test data and create student groups
     course_data["groups"].each { |group|
       puts "Creating group '#{group["name"]}' in #{_course.course.name}"
        _course.create_group(group)
+    }
+
+    # Fetch page test data and create pages for the course
+    course_data["pages"].each {|page|
+      _course.create_page(page)
     }
 
     # Fetch discussion test data and create discussions for the course.
@@ -149,7 +162,7 @@ def generate_test_environment
 
     # Fetch assignment test data and create assignments
     course_data["assignments"].each { |assignment|
-      puts "Creating assignment #{assignment["name"]} in #{_course.course.name}"
+      puts "Creating assignment #{assignment["title"]} in #{_course.course.name}"
 
       if assignment["submission_types"].include?("discussion_topic")
         _course.create_discussion_assignment(assignment)
@@ -157,7 +170,7 @@ def generate_test_environment
       end
 
       assignment_opts = _course.default_assignment_opts
-      assignment_opts[:title] = assignment["name"]
+      assignment_opts[:title] = assignment["title"]
       assignment_opts[:description] = assignment["description"]
       assignment_opts[:due_at] = assignment["due_at"]
       assignment_opts[:points_possible] = assignment["points_possible"]
@@ -167,6 +180,27 @@ def generate_test_environment
 
       a = _course.create_assignment(assignment_opts)
 
+      # Create a dummy rubric for the assignment
+      rubric_opts = {
+        :context => _course.course,
+        :title => "Rubric for #{assignment["title"]}",
+        :data => larger_rubric_data
+      }
+      rubric = rubric_model(rubric_opts)
+      rubric.save!
+      rubric.reload
+
+      a.build_rubric_association(
+        rubric: rubric,
+        purpose: "grading",
+        use_for_grading: true,
+        context: _course.course
+      )
+      a.rubric_association.save!
+      a.reload
+      a.save!
+
+      # Populate assignment submissions
       if assignment["submissions"] # If the assignment has submissions, create those too.
         assignment["submissions"].each { |submission|
           submission["user"] = _course.resolve_user_value(submission["user"], _course)
@@ -180,6 +214,23 @@ def generate_test_environment
           end
 
           _submission.save!
+
+          # If there is instructor feedback for the submission let's create it now.
+          if submission["feedback"]
+            feedback = submission["feedback"]
+            
+            # Resolve the grader string from the test data to an actual user account
+            feedback["grader"] = _course.resolve_user_value(feedback["grader"], _course)
+            
+            if feedback["grade"] # If a grade is specified, assign that grade to the submission  
+              a.grade_student(submission["user"], grade: feedback["grade"], grader: feedback["grader"])
+            end
+            
+            if feedback["comment"] # If there is a feedback comment add it to the submission
+              _submission.add_comment(comment: feedback["comment"], author: feedback["grader"])
+            end
+
+          end
         }
       end
 
@@ -250,14 +301,26 @@ def generate_test_environment
         @quiz.generate_quiz_data
         @quiz.due_at = quiz["due_at"]
 
+        if quiz["allowed_attempts"]
+          @quiz.allowed_attempts = quiz["allowed_attempts"]
+          @quiz.save!
+        end
+
         @quiz.save!
         @quiz.publish!
+
+        _course.quizzes << @quiz
 
       else
 
         quiz_opts = quiz.except("rubric", "questions")
 
         q = _course.course.quizzes.create!(quiz_opts) # Create the actual quiz
+
+        if quiz["allowed_attempts"]
+          q.allowed_attempts = quiz["allowed_attempts"]
+          q.save!
+        end
         
         # Populate quiz questions
         questions = []
@@ -276,32 +339,134 @@ def generate_test_environment
         q.save!
         q.publish!
 
-      end
+        _course.quizzes << q
+      end    
 
-      
+      }
 
-    
+      # Fetch module test data and create the appropriate modules
+      course_data["modules"].each{ |mod|
 
-
-      
-
-    
-
-
-    
+        _course.create_module(mod)
 
       }
 
 
 
 
-
-
   }
+
+  courses[0]
 
 end
 
+def create_task_instances(test_course)
 
+  tasks = []
+
+  task = AgentTask.new({
+    id: "9b30427c-2025-48db-baed-2cff271cd819",
+    parameterized_text: "Task: In the course '[[Course]],' switch from your current group '[[Group 1]]' to the group '[[Group 2]]' within the 'Student Groups' group set."
+  })
+
+  task.populate(test_course) { |course, task|
+
+      # find a group that the logged-in user is part of.
+      group1 = course.groups.select {|group| (group.users.include? course.logged_in_user) && (!AgentTask.groups.include? group)}.first
+
+      if group1.nil?
+        puts "Cannot find group containing the logged in user for task #{task.id}"
+        return
+      end
+
+      # find a group that the logged-in user in not a part of. 
+      group2 = course.groups.select {|group| (!group.users.include? course.logged_in_user) && (!AgentTask.groups.include? group) }.first
+
+      if group2.nil?
+        puts "Cannot find group that does not contain the logged in user for task #{task.id}"
+        return
+      end
+
+      # Register these groups as being used.
+      AgentTask.groups << group1 
+      AgentTask.groups << group2
+
+      task.instance_variable_set(:@group1, group1)
+      task.instance_variable_set(:@group2, group2)
+
+      # Generate task instance text
+      task.instance_text = task.parameterized_text.gsub(/\[\[Course\]\]/, course.course.name)
+      task.instance_text = task.instance_text.gsub(/\[\[Group 1\]\]/, group1.name)
+      task.instance_text = task.instance_text.gsub(/\[\[Group 2\]\]/, group2.name)
+
+  }
+
+  tasks << task
+
+  task = AgentTask.new({
+    id: "0b925826-6333-43cf-9eb0-4b5cb49a7e7d",
+    parameterized_text: "Task: In the course '[[Course]]' use the Syllabus page to find the due date for the assignment titled '[[Assignment]]' and list the due date as displayed in the Course Summary section."
+  })
+
+  task.populate(test_course) { |course,task|
+
+    assignment = course.assignments.select {|a| !AgentTask.assignments.include? a}.first
+
+    if assignment.nil?
+      puts "Cannot find assignment for task #{task.id}"
+      return
+    end
+
+    # Register this assignment as being used.
+    AgentTask.assignments << assignment
+
+    task.instance_variable_set(:@assignment, assignment)
+
+    # Generate task instance text
+    task.instance_text = task.parameterized_text.gsub(/\[\[Course\]\]/, course.course.name)
+    task.instance_text = task.instance_text.gsub(/\[\[Assignment\]\]/, assignment.title)
+
+  }
+
+  tasks << task
+
+  task = AgentTask.new({
+    id: "0be01f7a-0c6e-49c3-af20-52f9b97ef728",
+    parameterized_text: "Task: View the feedback left by your instructor for the assignment '[[Assignment]]' in the course '[[Course]]', and add a comment saying 'Thank you for the feedback!' using the Feedback sidebar."
+  })
+
+  task.populate(test_course) { |course,task|
+
+    assignment = course.assignments.select {|a| # Find an assignment
+      # that has a submission by the logged in user.
+      submission = a.submissions.find_by(user_id: course.logged_in_user.id)
+      # where that submission has a comment provided by the course instructor. 
+      comment_by_teacher = submission.submission_comments.select {|comment| comment.author == course.teacher}.first
+      comment_by_teacher 
+  }.first
+
+    if (assignment.nil?) || (AgentTask.assignments.include? assignment)
+      puts "Could not find assignment with submission and instructor feedback for task #{task.id}"
+      return 
+    end
+
+    # Register this assignment as being used.
+    AgentTask.assignments << assignment
+
+    # Generate task instance text
+    task.instance_text = task.parameterized_text.gsub(/\[\[Course\]\]/, course.course.name)
+    task.instance_text = task.instance_text.gsub(/\[\[Assignment\]\]/, assignment.title)
+
+  }
+
+  tasks << task
+
+  tasks.each {|t| 
+    puts "Task: #{t.id}\n#{t.instance_text}"
+  }
+
+
+end
 
 
 
@@ -311,5 +476,6 @@ docker-compose run --remove-orphans web bundle exec rails runner spec/fixtures/d
 =end
 
 #explore
-generate_test_environment
+test_course = generate_test_environment
+create_task_instances(test_course)
 #puts Account.default.settings.pretty_inspect

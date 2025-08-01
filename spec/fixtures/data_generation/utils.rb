@@ -9,105 +9,62 @@ require_relative "../../factories/assignment_factory"
 require_relative "../../factories/quiz_factory"
 require_relative "../../factories/rubric_factory"
 require_relative "../../factories/group_factory"
+require_relative "../../factories/assessment_request"
 require 'json'  
 
-class TestData 
+class AgentTask
 
-  def initialize(data_file_path)
+  @@groups = []
+  @@assignments = []
+  @@quizzes = []
+  @@discussions = []
+  @@pages = []
+  @@modules = []
 
-    data_file = File.open data_file_path
-    data = JSON.load data_file
-
-
-    @courses = data["courses"]
-    @teachers = data["teachers"]
-    @students = data["students"]
+  def self.groups
+    @@groups
   end
 
-  def get_test_course
-
-    course = @courses.shift
-    teacher = @teachers.shift
-    student = @students.shift
-
-    result = {
-      :course_name => course["name"],
-      :course_code => course["code"],
-      :teacher_name => teacher["name"],
-      :teacher_email=> teacher["email"],
-      :teacher_password=> teacher["password"],
-      :student_name=> student["name"],
-      :student_email=> student["email"],
-      :student_password=> student["password"]
-    }
-
-    result
-
+  def self.assignments
+    @@assignments
   end
 
-  def get_course(course_name)
-    course = @courses.select {|item| item["name"] == course_name}
-    course
+  def self.quizzes
+    @@quizzes
   end
 
-  # Returns test data for a discussion corresponding to the given course
-  def get_discussion(course_name)
-    course = self.get_course(course_name)
-    discussion = course["discussions"].shift
-
-    result = {
-      :discussion_title => discussion["title"],
-      :discussion_message => discussion["message"]
-    }
-
-    result
+  def self.discussions
+    @@discussions
   end
 
-  # Returns test data for an announcement corresponding to the given course
-  def get_announcement(course_name)
-    course = self.get_course(course_name)
-    announcement = course["announcements"].shift
-
-    result = {
-      :announcement_title => announcement["title"],
-      :announcement_message => announcement["message"]
-    }
-
-    result
+  def self.pages
+    @@pages
   end
 
+  def self.modules
+    @@modules
+  end
+  
+  attr_reader :id
+  attr_reader :parameterized_text
+  attr_accessor :instance_text
 
-  def get_quiz(course_name)
-    course = self.get_course(course_name)
 
-    quiz = course["quizzes"].shift
-
-    quiz
-
+  def initialize(data)
+    @id = data[:id]
+    @parameterized_text = data[:parameterized_text]
+    @instance_text = ""
 
   end
 
-  # Don't do this, just use the data returned by quiz instead.
-  def get_quiz_question(course_name, quiz_name)
+  def populate(test_course)
 
-    course = self.get_course(course_name)
-    quiz = course["quizzes"].select {|item| item.name == quiz_name}
+    if !test_course.is_a? TestCourse
+      puts "The populate method requires an object of the TestCourse class. Instead got test_course -> #{test_course.class}"
+    end
 
-    questions = quiz["questions"]
+    yield test_course, self
 
-  end
-
-  def get_student
-
-    student = @students.shift
-
-    result = {
-      :student_name => student["name"],
-      :student_email => student["email"],
-      :student_password => student["password"]
-    }
-
-    result
   end
 
 end
@@ -129,6 +86,7 @@ class TestCourse
   attr_reader :groups
   attr_reader :pages
   attr_reader :teacher
+  attr_reader :modules
   attr_reader :group #TODO: temp
 
 =begin
@@ -159,6 +117,8 @@ The student account will be assumed to be the logged in user for this course.
     @quizzes = []
     @groups = []
     @pages = []
+    @group_categories = []
+    @modules = []
     
 
     # Create the course and the teacher user
@@ -212,6 +172,7 @@ The student account will be assumed to be the logged in user for this course.
 
   end
 
+
   def default_assignment_opts
 
     opts = {
@@ -233,19 +194,44 @@ The student account will be assumed to be the logged in user for this course.
 
   end
 
+  def create_group_category(group_category)
+    puts "Creating group category #{group_category["name"]} in #{@course.name}"
+
+    gc = @course.group_categories.create!(name: group_category["name"], self_signup: group_category["self_signup"], self_signup_end_at: group_category["self_signup_end_at"])
+    gc.configure_self_signup(true, false)
+    gc.save!
+    @group_categories << gc
+  end
+
   def create_group(data)
     data[:context] = @course
 
+    data["group_category"] = resolve_group_category_value(data["group_category"], self)
+
     group = Factories.group(data.except("users", "discussions"))
- 
-    data["users"].each {|user| 
-      u = resolve_user_value(user, self)
-      group.add_user(u, "accepted", false)
-    }
+    group.join_level = "parent_context_auto_join"
+    
+    # Create any specified users for this group.
+    if data["users"]
+      data["users"].each {|user| 
+        u = resolve_user_value(user, self)
+        group.add_user(u, "accepted", false)
+        # puts "Does #{group.name} allow self sign up? #{group.allow_self_signup? u }"
+      }
+    end
+
     group.name = data["name"]
     group.save!
 
+   
+
     @groups << group
+
+    if data["announcements"] # If the group has any announcements create those too.
+      data["announcements"].each {|announcement|
+      create_group_announcement(group, announcement)
+    }
+    end
 
     if data["discussions"] # If the group has any discussions create those too. 
       data["discussions"].each {|discussion|
@@ -255,6 +241,84 @@ The student account will be assumed to be the logged in user for this course.
     }
     end
 
+    if data["pages"] # If the group has any pages, create those too.
+      data["pages"].each {|page|
+      p = group.wiki_pages.create!(title: page["title"], body: page["body"])
+      p.save!
+
+      if page["updates"] # If the page has updates, to build a version history. Make those changes too.
+        page["updates"].each {|update|
+        
+        p.title = update["title"]
+        p.body = update["body"]
+        p.save!
+
+      }
+
+      end
+      
+    }
+
+    end
+
+  end
+
+  def create_module(data)
+    puts "Creating module #{data["name"]} in #{@course.name}"
+
+    m = @course.context_modules.create!(data.except("content"))
+    
+    # Go through any content listed for this module and add it.
+    data["content"].each {|item|
+
+        _item = resolve_module_content(item["title"], self)
+
+        item_type = resolve_item_type(_item)
+
+        tag = m.add_item(id: _item.id, type: item_type)
+
+        # Handle completion requirements.
+        if item["completion_requirements"]
+          m.completion_requirements << {id: tag.id, type: item["completion_requirements"]}
+          m.save!
+        end
+
+    }
+
+    m.save!
+    @modules << m
+
+    m
+
+  end
+
+  def resolve_module_content(title, course)
+    pool = []
+
+    pool.concat course.pages
+    pool.concat course.assignments
+    pool.concat course.quizzes
+    pool.concat course.discussions
+
+    # puts "Pool Items:"
+    # pool.each {|item| puts "#{item.title}->#{item.class}" }
+    
+    return pool.select {|item| item.title == title}.first
+
+  end
+
+  def create_group_announcement(group, data)
+    data["user"] = resolve_user_value(data["user"], self)
+    announcement = group.announcements.create!(data.except("replies"))
+    announcement.reload
+
+    if data["replies"] # If there are any replies create those too
+      data["replies"].each {|reply|
+        create_discussion_reply(announcement, reply)
+    }
+    end
+
+    announcement
   end
 
   def create_group_discussion(group, data)
@@ -302,19 +366,20 @@ The student account will be assumed to be the logged in user for this course.
 
   end
 
-  def create_page(data={
-    :page_title => "The Example Page",
-    :page_body => "I have some text in me!",
-    :user => @teacher 
-  })
+  def create_page(data)
+    puts "Creating page #{data["title"]} in #{@course.name}"
 
-    page = wiki_page_model({
-      title: data[:page_title],
-      body: data[:page_body],
-      user: data[:user],
-      course: @course
-    })
+    data["user"] = resolve_user_value(data["user"], self)
+    data[:title] = data["title"]
+    data[:body] = data["body"]
+    data[:user] = data["user"]
+    data[:context] = @course
 
+    page = wiki_page_model(data)
+
+    puts "Created page #{page.title}"
+
+    @pages << page
     page
   end
 
@@ -375,25 +440,37 @@ The student account will be assumed to be the logged in user for this course.
 
   def create_discussion_assignment(data)
     
-=begin
-This is where we left off on july 29th, need to implement loading in discussion assignments. 
-
-discussion_assignment = @course.assignments.create!(title: "Del this disc", workflow_state: "active")
-d = @course.discussion_topics.create!(assignment: discussion_assignment, title: "Del this disc")
-=end
-
-
 
     data = data.merge({:assignment_group => @group})
     assignment = @course.assignments.create!(data.except("peer_reviews", "replies"))
 
-    topic = assignment.discussion_topic
+    topic = @course.discussion_topics.create!(assignment: assignment, title: data["title"], message:data["description"] )
+   
 
     puts "Created discussion topic? #{topic}"
 
     if data["replies"]
+      
       data["replies"].each {|reply|
+      email = reply["user"]
+      reply["user"] = resolve_user_value(reply["user"], self)
       create_discussion_reply(topic, reply )
+
+      submission = assignment.submit_homework(reply["user"], submission_type:"discussion_topic")
+      
+      if data["peer_reviews"] 
+        if !email.include? "sammy"
+          assessment_request = AssessmentRequest.create!(
+            asset: submission,
+            user: reply["user"],
+            assessor: @logged_in_user,
+            assessor_asset: assignment.submission_for_student(@logged_in_user)
+          )
+        end
+      end
+
+      
+
     }
     end
 
@@ -401,11 +478,17 @@ d = @course.discussion_topics.create!(assignment: discussion_assignment, title: 
       assignment.peer_review_count = data["peer_reviews"]["count"]
       assignment.automatic_peer_reviews = data["peer_reviews"]["automatic_peer_reviews"]
       assignment.anonymous_peer_reviews = data["peer_reviews"]["anonymous_peer_reviews"]
+      assignment.intra_group_peer_reviews = data["peer_reviews"]["intra_group_peer_reviews"]
       assignment.update!(peer_reviews: true)
       assignment.save!
 
-      result = a.assign_peer_reviews
     end
+
+     topic.publish
+
+     @assignments << assignment
+
+     assignment
   end
 
   def create_discussion_reply(discussion, reply)
@@ -430,10 +513,24 @@ d = @course.discussion_topics.create!(assignment: discussion_assignment, title: 
 
   end
 
+  def resolve_group_category_value(group_category_value, course)
+
+    if !group_category_value.is_a? String
+      return group_category_value
+    end
+
+    return @group_categories.select {|gc| gc.name ==  group_category_value}.first
+
+  end
+
   # A method that resolves user values loaded from the test data.
   # In the test data the value for a 'user' key may be one of the following:
   # 'instructor'/'teacher', 'student', 'logged_in_user'/'main_user' or the email of a particular user. 
   def resolve_user_value(user_value, course)
+
+    if !user_value.is_a? String # Only process strings.
+      return user_value
+    end
 
     # Pick a random instructor
     if user_value == "instructor" || user_value == "teacher"
@@ -456,10 +553,28 @@ d = @course.discussion_topics.create!(assignment: discussion_assignment, title: 
       pool = []
       pool.concat course.students
       pool.concat course.teachers
+      pool << course.logged_in_user
 
       return pool.select {|user| user.email == user_value}.first
 
 
+    end
+
+  end
+
+  def resolve_item_type(item)
+
+    case item
+      when Assignment
+        return "assignment"
+      when WikiPage
+        return "page"
+      when Quizzes::Quiz
+        return "quiz"
+      when DiscussionTopic
+        return 'discussion_topic'
+      else
+        puts "Unknown item type: #{item.class}"
     end
 
   end

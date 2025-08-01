@@ -20,7 +20,28 @@ courses:
     - name: Sarah Studentson
       email: sarah@ualberta.ca
       password: 30OubNfH3Z3T
+  modules:
+    - name: Module 1
+      workflow_state: active
+      content: 
+        - title: Psychology & Pseudeo Science
+          completion_requirements: "must_mark_done"
+    - name: Module 2
+      workflow_state: active
+      content:
+        - title: Researchers in the field of Psychology
+          
   announcements:
+    - title: Materials for Lab 8
+      message: Please remember to have procured all the PPE listed in the Lab 8 instructions before the day of the lab. Thank you!
+      user: instructor
+      allow_rating: true
+      replies: 
+        - user: main_user
+          text: Does this include the closed-toe shoes?
+          replies:
+            - user: instructor
+              text: Yes it does.
     - title: There will be no class next week!
       message: Don't bother coming in next week as there will be no class.
       user: instructor
@@ -31,6 +52,13 @@ courses:
         - user: sarah@ualberta.ca
           text: Awww, I was looking forward to sleeping in class next week. 
   discussions:
+    - title: Memory and experiences
+      message: As we are discussing memory in class this week, I'd like to start a self-reflective conversation about how you interact with your own memory. Share any stories you have related to remembering something, or misremembering something!
+      user: instructor
+      discussion_type: threaded
+      replies:
+        - user: phillip@ualberta.ca
+          text: I always find that I am better able to commit things from short term memory to long term by repeating them to myself a few times. 
     - title: What aspect of psychology do you find most interesting?
       message: |
         Hi Everyone, I hope you've all had a great first week of classes. This semester I am looking to engage with students on a variety of weekly opinion questions. Starting with what aspects of psychology you personally find interesting. Leave your answers in a comment below! 
@@ -45,32 +73,51 @@ courses:
         - user: sarah@ualberta.ca
           text: I am looking forward to better understanding the mechanisms behind procrastination. 
   groups:
+    - name: Group J 
+      is_public: true
+      description: A friendly group always open to new memebers. 
+    - name: Group X 
+      is_public: true
+      join_level: parent_context_request
+      description: A test group
     - name: Group A
       is_public: true
       description: A team
-      max_membership: 3
       users: 
         - sammy@ualberta.ca
         - phillip@ualberta.ca
         - terrance@ualberta.ca
+      announcements:
+        - title: Do any of you have an extra textbook?
+          message: Hi guys, I'm looking for an extra textbook for this course, if you have one lying around please send me a message.
+          user: main_user
+          allow_rating: true
+
       discussions:
         - title: I'll be away next week.
           message: Just letting everyone know I'll be on vacation next week and unavailable. 
           user: main_user
           discussion_type: threaded
+      pages:
+        - title: Thoughts on the course so far
+          body: |
+            So, what are your guys' thoughts on the course so far?
+          updates:
+            - title: Thoughts on the course so far
+              body: Ok, guys, really, what are your thoughts?!
+        - title: Planning for the group project
+          body: |
+            I figured we should have a page to organize our notes around the group project.
+
 
   pages:
-    - name: "Syllabus"
+    - title: Psychology & Pseudeo Science
+      user: instructor
       body: |
-        # Psychology 101 Syllabus
-
-        ## Assignments
-
-        1. Childhood Development Essay
-        **Due Date:** January 1st, 2026 @ 5pm
+        Psychology, as a scientific discipline, is grounded in empirical research and the systematic study of behavior and mental processes. It relies on rigorous methodologies, peer-reviewed evidence, and ethical standards to understand the complexities of the human mind. In contrast, pseudoscience often masquerades as legitimate science but lacks the foundational principles of scientific inquiry—such as falsifiability, reproducibility, and critical peer evaluation. Practices like astrology, phrenology, or certain fringe self-help techniques may claim psychological benefits but typically rely on anecdotal evidence, confirmation bias, or misleading jargon. Distinguishing between psychology and pseudoscience is vital—not just for academic integrity, but for protecting individuals from potentially harmful or exploitative practices disguised as therapeutic truth.
 
   assignments:   
-    - name: Researchers in the field of Psychology
+    - title: Researchers in the field of Psychology
       description: |
         Hi Everyone, for this assignment, you'll have to reply with the name of a researcher in the field of psychology.
       due_at: 2026-03-01 18:00:00
@@ -82,15 +129,33 @@ courses:
       replies:
         - user: sarah@ualberta.ca
           text: My favorite psychologist is Erik Erikson!
+        - user: terrance@ualberta.ca
+          text: Sigmund Freud is a classic.
+        - user: phillip@ualberta.ca
+          text: Can't go wrong with Carl Rogers.
+        - user: sammy@ualberta.ca
+          text: It's gotta be my boy B.F. Skinner.
       peer_reviews: 
         enabled: true
-        count: 1
+        count: 2
         due_at: 2026-04-01 18:00:00
         intra_group_peer_reviews: true
         anonymous_peer_reviews: false
         automatic_peer_reviews: true
+
+    - title: Psychology Video on learning
+      description: For this assignment you must go out onto the internet and find an interesting video about how humans learn. Submit the url to the video. 
+      due_at: 2026-03-15 18:00:00
+      points_possible: 32
+      created_at: 2025-07-31 10:00:00
+      updated_at: 2025-07-31 10:00:00
+      submission_types: ["online_url"]
+      submissions:
+        - user: main_user
+          submission_type: online_url
+          url: https://www.youtube.com/watch?v=kKvK2foOTJM
       
-    - name: Abnormal Behavior Essay
+    - title: Abnormal Behavior Essay
       group_category: default
       description: Write a 1000 word essay about abnormal behavior.
       due_at: 2026-02-01 18:00:00
@@ -106,7 +171,7 @@ courses:
           peer_review:
             - author: instructor
               comment: Well done!
-    - name: "Childhood Development Essay"
+    - title: "Childhood Development Essay"
       group_category: default
       description: "Write a 1000 word essay about an aspect of childhood psychological development."
       due_at: 2026-01-02 18:00:00
@@ -122,6 +187,11 @@ courses:
           peer_review:
             - author: terrance@ualberta.ca
               comment: Not bad.
+          feedback:
+            grade: 85
+            grader: tammy@ualberta.ca
+            comment: excellent job
+
         - user: terrance@ualberta.ca
           submission_type: online_text_entry
           body: |
@@ -135,7 +205,7 @@ courses:
         automatic_peer_reviews: true
 
 
-    - name: "Brain Anaomolies"
+    - title: "Brain Anaomolies"
       group_category: default
       description: "Write a paragraph about what you learned from today's class discussion topic: 'Brain Anomolies'."
       due_at: 2026-01-15 18:00:00
@@ -182,6 +252,7 @@ courses:
       due_at: 2025-09-01 18:00:00
       published_at: 2025-07-28 10:00:00
       workflow_state: available
+      allowed_attempts: 3
       rubric: 
         title: Warming up to psychology Rubric
         description: A simple rubric used to assess a psychology quiz.
